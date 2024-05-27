@@ -7,10 +7,10 @@
 <br/>
 
 <p align='center'>
-  <img src='https://github.com/termsurf/seal.tree/blob/make/view/seal.svg?raw=true' height='256'>
+  <img src='https://github.com/termsurf/move.tree/blob/make/view/move.gif?raw=true' height='256'>
 </p>
 
-<h3 align='center'>seal.tree</h3>
+<h3 align='center'>move.tree</h3>
 <p align='center'>
   The BaseTree Runtime Library
 </p>
@@ -21,7 +21,7 @@
 
 ## Introduction
 
-The `seal.tree` library is the
+The `move.tree` library is the runtime which is internally used to manage the decks, files, and code evaluation.
 
 ## License
 
