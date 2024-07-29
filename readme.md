@@ -6,13 +6,9 @@
 <br/>
 <br/>
 
+<h3 align='center'>flow.tree</h3>
 <p align='center'>
-  <img src='https://github.com/termsurf/move.tree/blob/make/view/move.gif?raw=true' height='256'>
-</p>
-
-<h3 align='center'>move.tree</h3>
-<p align='center'>
-  The BaseTree Runtime Library
+  The NoteTree Runtime Library
 </p>
 
 <br/>
@@ -21,7 +17,7 @@
 
 ## Introduction
 
-The `move.tree` library is the runtime which is internally used to manage the decks, files, and code evaluation.
+The `flow.tree` library is the runtime which is internally used to manage the decks, files, and code evaluation.
 
 ## License
 
