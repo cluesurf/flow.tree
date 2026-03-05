@@ -1,0 +1,88 @@
+{
+  "name": "seed-tree",
+  "icon": "view/tree.png",
+  "displayName": "Seed Language",
+  "description": "Seed language support: syntax highlighting, completions, hover, go-to-definition, and more.",
+  "version": "0.1.0",
+  "license": "MIT",
+  "publisher": "cluesurf",
+  "main": "./base.js",
+  "scripts": {
+    "make": "vsce package",
+    "host": "vsce publish"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cluesurf/tree-code.git"
+  },
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "workspaceContains:**/*.tree"
+  ],
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "contributes": {
+    "iconThemes": [
+      {
+        "id": "tree",
+        "label": "Tree",
+        "path": "./view/view.json"
+      }
+    ],
+    "configurationDefaults": {
+      "[tree]": {
+        "editor.wordWrap": "on",
+        "editor.quickSuggestions": {
+          "other": true,
+          "comments": true,
+          "strings": true
+        },
+        "editor.tabCompletion": "on",
+        "editor.wordSeparators": " ()<>{},?/",
+        "editor.bracketPairColorization.enabled": false
+      }
+    },
+    "languages": [
+      {
+        "id": "tree",
+        "aliases": [
+          "Seed",
+          "Tree",
+          "TreeCode",
+          "tree"
+        ],
+        "extensions": [
+          ".tree"
+        ],
+        "configuration": "./text/bind.json"
+      },
+      {
+        "id": "tree-markdown-injection"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "tree",
+        "scopeName": "source.tree",
+        "path": "./text/tree.json"
+      },
+      {
+        "language": "tree-markdown-injection",
+        "scopeName": "markdown.tree.codeblock",
+        "path": "./text/mark.json",
+        "injectTo": [
+          "text.html.markdown"
+        ],
+        "embeddedLanguages": {
+          "meta.embedded.block.tree": "tree"
+        }
+      }
+    ]
+  }
+}

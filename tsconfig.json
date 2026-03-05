@@ -17,11 +17,10 @@
     "noErrorTruncation": true,
     "resolveJsonModule": true,
     "types": ["node"],
-    "typeRoots": ["node_modules/@types"],
+    "typeRoots": ["node_modules/@types", "../mesh.tree/node_modules/@types"],
     "noImplicitAny": false,
     "paths": {
-      "@/*": ["./code/*"],
-      "@mesh/*": ["../mesh.tree/code/*"]
+      "@/*": ["./code/*"]
     }
   },
   "include": ["code/**/*.ts"],

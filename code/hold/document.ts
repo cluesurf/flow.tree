@@ -3,8 +3,7 @@
  */
 
 import type { Range } from '@/link/protocol'
-import type { SurfCard } from '@mesh/surf/form'
-import type { Kink } from '@mesh/kink/form'
+import type { SurfCard, Kink } from '@/mesh/form'
 
 export type DocumentState = {
   file: string
