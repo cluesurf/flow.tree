@@ -28,6 +28,24 @@
     "vscode-languageclient": "^9.0.1"
   },
   "contributes": {
+    "commands": [
+      {
+        "command": "seed.runTime",
+        "title": "Seed: Run Benchmark"
+      },
+      {
+        "command": "seed.runAllTime",
+        "title": "Seed: Run All Benchmarks"
+      },
+      {
+        "command": "seed.profileTime",
+        "title": "Seed: Profile Benchmark"
+      },
+      {
+        "command": "seed.compareTime",
+        "title": "Seed: Compare Against Baseline"
+      }
+    ],
     "iconThemes": [
       {
         "id": "tree",

@@ -96,6 +96,26 @@ function collectLenses(input: { node: Surf; lenses: CodeLens[]; index: SymbolInd
       })
       break
     }
+    case 'time': {
+      const n = node as any
+      lenses.push({
+        range,
+        command: {
+          title: 'run time',
+          command: 'seed.runTime',
+          arguments: [n.name],
+        },
+      })
+      lenses.push({
+        range,
+        command: {
+          title: 'profile',
+          command: 'seed.profileTime',
+          arguments: [n.name],
+        },
+      })
+      break
+    }
     case 'wear': {
       const n = node as any
       for (const t of n.task ?? []) {

@@ -6,7 +6,7 @@
 <br/>
 <br/>
 
-<h3 align='center'>make.tree</h3>
+<h3 align='center'>flow.tree</h3>
 <p align='center'>
   The Seed Language Server
 </p>
@@ -15,9 +15,34 @@
 <br/>
 <br/>
 
+## What It Does
+
+`flow.tree` is the language server for the Seed language. It provides
+real-time editor support for `.tree` files through the Language Server
+Protocol (LSP).
+
+Features include:
+
+- **Diagnostics**: Syntax and type errors as you type
+- **Go to definition**: Jump to form, task, and mask definitions
+- **Autocompletion**: Keyword, type, and identifier suggestions
+- **Hover info**: Type information and documentation on hover
+- **Symbol search**: Find forms, tasks, and masks across a project
+
+## Part of the Seed Ecosystem
+
+| Package   | Purpose                        |
+| --------- | ------------------------------ |
+| seed      | Entrypoint and CLI             |
+| make.tree | Compiler                       |
+| flow.tree | Language server (this package) |
+| deck.tree | Package manager                |
+| base.tree | Standard library               |
+| bind.tree | Native bindings                |
+
 ## License
 
-Copyright 2023 <a href='https://clue.surf'>ClueSurf</a>
+Copyright 2021-2026+ <a href='https://clue.surf'>ClueSurf</a>
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may
 not use this file except in compliance with the License. You may obtain

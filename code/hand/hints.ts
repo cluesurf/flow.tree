@@ -25,6 +25,26 @@ const HINT_KIND = {
   Parameter: 2 as InlayHintKind,
 }
 
+/**
+ * Cache for benchmark results, populated via `seed/timeResults` notification.
+ */
+export const benchmarkCache = new Map<string, { mean_ns: number; median_ns: number }>()
+
+export function updateBenchmarkCache(input: {
+  results: Array<{ name: string; mean_ns: number; median_ns: number }>
+}): void {
+  for (const r of input.results) {
+    benchmarkCache.set(r.name, { mean_ns: r.mean_ns, median_ns: r.median_ns })
+  }
+}
+
+function formatNs(ns: number): string {
+  if (ns < 1000) return `${ns.toFixed(1)}ns`
+  if (ns < 1_000_000) return `${(ns / 1000).toFixed(1)}us`
+  if (ns < 1_000_000_000) return `${(ns / 1_000_000).toFixed(1)}ms`
+  return `${(ns / 1_000_000_000).toFixed(2)}s`
+}
+
 export function handleInlayHints(input: {
   docs: DocumentStore
   index: SymbolIndex
@@ -124,6 +144,20 @@ function collectHints(input: { node: Surf; hints: InlayHint[]; range: Range }): 
     case 'hook': {
       const n = node as any
       for (const f of n.flow ?? []) collectHints({ node: f, hints, range })
+      break
+    }
+    case 'time': {
+      // Show cached benchmark result if available
+      const n = node as any
+      const cached = benchmarkCache.get(n.name)
+      if (cached) {
+        hints.push({
+          position: { line: site.base.line - 1, character: site.head.mark },
+          label: `${formatNs(cached.mean_ns)} mean`,
+          kind: HINT_KIND.Type,
+          paddingLeft: true,
+        })
+      }
       break
     }
     case 'meet': {

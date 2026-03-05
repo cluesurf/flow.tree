@@ -25,7 +25,7 @@ import { handleSignatureHelp } from '@/hand/signature'
 import { handleWorkspaceSymbols } from '@/hand/workspace'
 import { handleSemanticTokensFull, TOKEN_TYPES, TOKEN_MODIFIERS } from '@/hand/semantic'
 import { handleFormatting } from '@/hand/formatting'
-import { handleInlayHints } from '@/hand/hints'
+import { handleInlayHints, updateBenchmarkCache } from '@/hand/hints'
 import { handleCodeActions } from '@/hand/actions'
 import { handleCodeLens } from '@/hand/lens'
 import {
@@ -271,6 +271,14 @@ export function startServer(input: {
       index,
       uri: params.textDocument.uri,
     })
+  })
+
+  // -- Custom notifications --
+
+  dispatcher.onNotification('seed/timeResults', (params: any) => {
+    if (params.results && Array.isArray(params.results)) {
+      updateBenchmarkCache({ results: params.results })
+    }
   })
 
   // -- Start reading from stdin --
