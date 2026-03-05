@@ -161,9 +161,21 @@ export type SurfCard = {
   list: Surf[]
 }
 
+/** Opaque type for core terms produced by desugar. */
+export type Book = Map<string, any>
+
+/** Result from tolerant desugar. */
+export type DesugarResult = {
+  book: Book
+  asyncMeta: Map<string, boolean>
+  errors: Kink[]
+}
+
 /** Functions injected from mesh.tree at runtime. */
 export type MeshBindings = {
   parse: (input: { file: string; text: string }) => { tree: any } | null
   readCard: (input: { tree: any; file: string }) => SurfCard
   expandFuse: (input: { card: SurfCard }) => SurfCard
+  desugarCardTolerant?: (input: { card: SurfCard }) => DesugarResult
+  check?: (input: { term: any; book: Book }) => { state: any; value: any } | null
 }

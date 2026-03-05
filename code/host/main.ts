@@ -8,7 +8,7 @@
  */
 
 import { startServer } from '@/host/index'
-import type { SurfCard } from '@/mesh/form'
+import type { SurfCard, DesugarResult, Book } from '@/mesh/form'
 
 async function main(): Promise<void> {
   // Dynamic imports to avoid rootDir conflicts at compile time.
@@ -16,20 +16,41 @@ async function main(): Promise<void> {
   let readCard: (input: { tree: any; file: string }) => SurfCard
   let expandFuse: (input: { card: SurfCard }) => SurfCard
   let parse: (input: { file: string; text: string }) => { tree: any } | null
+  let desugarCardTolerant: ((input: { card: SurfCard }) => DesugarResult) | undefined
+  let check: ((input: { term: any; book: Book }) => { state: any; value: any } | null) | undefined
 
   try {
     // mesh.tree's readCard and expandFuse (sibling package, resolved at runtime)
     // @ts-expect-error: runtime-resolved dynamic import
     const readModule = await import('../../mesh.tree/host/read/index.js')
-    readCard = readModule.readCard
+    readCard = readModule.readCard ?? readModule.readCardTolerant
     // @ts-expect-error: runtime-resolved dynamic import
     const fuseModule = await import('../../mesh.tree/host/fuse/index.js')
     expandFuse = fuseModule.expandFuse
   } catch (e) {
-    // If mesh.tree is not built, provide stubs
     readCard = (input) => ({ file: input.file, list: [] })
     expandFuse = (input) => input.card
     process.stderr.write(`Warning: mesh.tree not available, using stubs: ${e}\n`)
+  }
+
+  try {
+    // @ts-expect-error: runtime-resolved dynamic import
+    const desugarModule = await import('../../mesh.tree/host/term/desugar.js')
+    if (desugarModule.desugarCardTolerant) {
+      desugarCardTolerant = desugarModule.desugarCardTolerant
+    }
+  } catch {
+    // Desugar not available
+  }
+
+  try {
+    // @ts-expect-error: runtime-resolved dynamic import
+    const checkModule = await import('../../mesh.tree/host/term/check.js')
+    if (checkModule.check) {
+      check = checkModule.check
+    }
+  } catch {
+    // Type checker not available
   }
 
   try {
@@ -49,7 +70,7 @@ async function main(): Promise<void> {
     process.stderr.write('Warning: @cluesurf/tree not available, parsing disabled\n')
   }
 
-  startServer({ parse, readCard, expandFuse })
+  startServer({ parse, readCard, expandFuse, desugarCardTolerant, check })
 }
 
 main()

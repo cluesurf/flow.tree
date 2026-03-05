@@ -172,6 +172,10 @@ export type ServerCapabilities = {
     triggerCharacters?: string[]
     resolveProvider?: boolean
   }
+  signatureHelpProvider?: {
+    triggerCharacters?: string[]
+    retriggerCharacters?: string[]
+  }
   hoverProvider?: boolean
   definitionProvider?: boolean
   referencesProvider?: boolean
@@ -180,6 +184,13 @@ export type ServerCapabilities = {
   renameProvider?: boolean | { prepareProvider?: boolean }
   codeActionProvider?: boolean
   foldingRangeProvider?: boolean
+  documentFormattingProvider?: boolean
+  semanticTokensProvider?: {
+    legend: { tokenTypes: string[]; tokenModifiers: string[] }
+    full: boolean
+  }
+  inlayHintProvider?: boolean
+  codeLensProvider?: { resolveProvider?: boolean }
 }
 
 export type InitializeResult = {

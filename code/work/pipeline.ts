@@ -1,8 +1,5 @@
 /**
- * Analysis pipeline: parse -> index -> publish diagnostics.
- *
- * Phase 1 implementation: fast parse only.
- * Full analysis (desugar + type check) will be added in Phase 2.
+ * Analysis pipeline: parse -> index -> desugar -> type check -> diagnostics.
  */
 
 import type { DocumentStore } from '@/hold/document'
@@ -12,11 +9,13 @@ import { indexCard } from '@/seek/build'
 import type { Dispatcher } from '@/link/dispatch'
 import type { Diagnostic } from '@/link/protocol'
 import { DIAGNOSTIC_SEVERITY } from '@/link/protocol'
-import type { Kink, CardSite } from '@/mesh/form'
+import type { Kink, CardSite, SurfCard, Book, DesugarResult } from '@/mesh/form'
 
 export type ParseFn = (input: { file: string; text: string }) => { tree: any } | null
 export type ReadCardFn = (input: { tree: any; file: string }) => any
 export type ExpandFuseFn = (input: { card: any }) => any
+export type DesugarFn = (input: { card: SurfCard }) => DesugarResult
+export type CheckFn = (input: { term: any; book: Book }) => { state: any; value: any } | null
 
 export type Pipeline = {
   parseFile(input: { uri: string }): void
@@ -30,8 +29,12 @@ export function createPipeline(input: {
   parse: ParseFn
   readCard: ReadCardFn
   expandFuse: ExpandFuseFn
+  desugar?: DesugarFn
+  check?: CheckFn
 }): Pipeline {
   const { docs, index, dispatcher, parse, readCard, expandFuse } = input
+  const desugar = input.desugar ?? null
+  const check = input.check ?? null
 
   function publishDiagnostics(input: { uri: string; diagnostics: Diagnostic[] }): void {
     dispatcher.sendNotification('textDocument/publishDiagnostics', {
@@ -60,10 +63,13 @@ export function createPipeline(input: {
     }
   }
 
+  function collectDiagnostics(errors: Kink[]): Diagnostic[] {
+    return errors
+      .map(k => kinkToDiagnostic(k))
+      .filter((d): d is Diagnostic => d !== null)
+  }
+
   return {
-    /**
-     * Fast parse: parse a single file and publish parse diagnostics.
-     */
     parseFile(input) {
       const doc = docs.get(input.uri)
       if (!doc) return
@@ -83,33 +89,81 @@ export function createPipeline(input: {
 
         docs.setCard({ uri: input.uri, card, parseErrors })
 
-        // Index the file
         indexCard({ index, card })
 
-        // Publish diagnostics
-        const diagnostics = parseErrors
-          .map(k => kinkToDiagnostic(k))
-          .filter((d): d is Diagnostic => d !== null)
-
+        const diagnostics = collectDiagnostics(parseErrors)
         publishDiagnostics({ uri: input.uri, diagnostics })
       } catch {
-        // Parse crashed, publish empty diagnostics
         docs.setCard({ uri: input.uri, card: { file: doc.file, list: [] }, parseErrors: [] })
         publishDiagnostics({ uri: input.uri, diagnostics: [] })
       }
     },
 
-    /**
-     * Full analysis: desugar + type check all dirty files.
-     * Phase 2 implementation. For now, just re-parse dirty files.
-     */
     fullAnalysis() {
+      // Phase 1: re-parse dirty files
       for (const doc of docs.allFiles()) {
         if (doc.dirty && doc.open) {
           const uri = pathToUri(doc.file)
           this.parseFile({ uri })
-          docs.markClean({ uri })
         }
+      }
+
+      // Phase 2: desugar + type check if available
+      if (!desugar) {
+        for (const doc of docs.allFiles()) {
+          if (doc.dirty && doc.open) {
+            docs.markClean({ uri: pathToUri(doc.file) })
+          }
+        }
+        return
+      }
+
+      // Build merged book from all open files
+      const mergedBook: Book = new Map()
+      const allErrors: Map<string, Kink[]> = new Map()
+
+      for (const doc of docs.allFiles()) {
+        if (!doc.card || !doc.open) continue
+
+        try {
+          const result = desugar({ card: doc.card })
+
+          for (const [name, term] of result.book) {
+            mergedBook.set(name, term)
+          }
+
+          if (result.errors.length > 0) {
+            const existing = allErrors.get(doc.file) ?? []
+            existing.push(...result.errors)
+            allErrors.set(doc.file, existing)
+          }
+        } catch {
+          // Desugar crashed for this file, skip
+        }
+      }
+
+      // Type check each definition
+      if (check) {
+        for (const [name, term] of mergedBook) {
+          try {
+            check({ term, book: mergedBook })
+          } catch {
+            // Type check crashed for this definition, skip
+          }
+        }
+      }
+
+      // Publish combined diagnostics (parse + desugar)
+      for (const doc of docs.allFiles()) {
+        if (!doc.open) continue
+        const uri = pathToUri(doc.file)
+
+        const parseD = collectDiagnostics(doc.parseErrors)
+        const desugarD = collectDiagnostics(allErrors.get(doc.file) ?? [])
+
+        docs.setCheckErrors({ uri, errors: allErrors.get(doc.file) ?? [] })
+        publishDiagnostics({ uri, diagnostics: [...parseD, ...desugarD] })
+        docs.markClean({ uri })
       }
     },
   }

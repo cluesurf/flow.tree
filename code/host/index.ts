@@ -4,7 +4,7 @@
  * Starts an LSP server over stdio, wiring together:
  * - Transport (Content-Length framed JSON-RPC)
  * - Document management
- * - Analysis pipeline (parse -> index -> diagnostics)
+ * - Analysis pipeline (parse -> index -> desugar -> type check -> diagnostics)
  * - LSP request handlers
  */
 
@@ -20,27 +20,27 @@ import { handleCompletion } from '@/hand/completion'
 import { handleDocumentSymbols } from '@/hand/symbols'
 import { handleReferences } from '@/hand/references'
 import { handleFoldingRanges } from '@/hand/folding'
+import { handleRename, handlePrepareRename } from '@/hand/rename'
+import { handleSignatureHelp } from '@/hand/signature'
+import { handleWorkspaceSymbols } from '@/hand/workspace'
+import { handleSemanticTokensFull, TOKEN_TYPES, TOKEN_MODIFIERS } from '@/hand/semantic'
+import { handleFormatting } from '@/hand/formatting'
+import { handleInlayHints } from '@/hand/hints'
+import { handleCodeActions } from '@/hand/actions'
+import { handleCodeLens } from '@/hand/lens'
 import {
   TEXT_DOCUMENT_SYNC_KIND,
   type InitializeResult,
 } from '@/link/protocol'
-
-// These will be dynamically imported from mesh.tree.
-// For now we use a lazy loader pattern so the server
-// can start even if mesh.tree is not available.
-let parseFn: ((input: { file: string; text: string }) => { tree: any } | null) | null = null
-let readCardFn: ((input: { tree: any; file: string }) => any) | null = null
-let expandFuseFn: ((input: { card: any }) => any) | null = null
+import type { SurfCard, DesugarResult, Book } from '@/mesh/form'
 
 export function startServer(input: {
   parse: (input: { file: string; text: string }) => { tree: any } | null
   readCard: (input: { tree: any; file: string }) => any
   expandFuse: (input: { card: any }) => any
+  desugarCardTolerant?: (input: { card: SurfCard }) => DesugarResult
+  check?: (input: { term: any; book: Book }) => { state: any; value: any } | null
 }): void {
-  parseFn = input.parse
-  readCardFn = input.readCard
-  expandFuseFn = input.expandFuse
-
   const docs = createDocumentStore()
   const index = createIndex()
   const dispatcher = createDispatcher({ output: process.stdout })
@@ -53,6 +53,8 @@ export function startServer(input: {
     parse: input.parse,
     readCard: input.readCard,
     expandFuse: input.expandFuse,
+    desugar: input.desugarCardTolerant,
+    check: input.check,
   })
 
   // -- Lifecycle --
@@ -65,17 +67,30 @@ export function startServer(input: {
           triggerCharacters: [' ', '.', '/'],
           resolveProvider: false,
         },
+        signatureHelpProvider: {
+          triggerCharacters: [' ', '\n'],
+        },
         hoverProvider: true,
         definitionProvider: true,
         referencesProvider: true,
         documentSymbolProvider: true,
+        workspaceSymbolProvider: true,
+        renameProvider: { prepareProvider: true },
         foldingRangeProvider: true,
+        documentFormattingProvider: true,
+        semanticTokensProvider: {
+          legend: { tokenTypes: TOKEN_TYPES, tokenModifiers: TOKEN_MODIFIERS },
+          full: true,
+        },
+        inlayHintProvider: true,
+        codeActionProvider: true,
+        codeLensProvider: { resolveProvider: false },
       },
     }
   })
 
   dispatcher.onNotification('initialized', () => {
-    // Server is ready. Could trigger initial indexing here.
+    // Server is ready.
   })
 
   dispatcher.onRequest('shutdown', () => {
@@ -110,12 +125,10 @@ export function startServer(input: {
       changes: contentChanges,
     })
 
-    // Fast parse immediately
     scheduler.scheduleImmediate(() => {
       pipeline.parseFile({ uri: textDocument.uri })
     })
 
-    // Full analysis after debounce
     scheduler.scheduleDebounced(() => {
       pipeline.fullAnalysis()
     })
@@ -126,7 +139,6 @@ export function startServer(input: {
   })
 
   dispatcher.onNotification('textDocument/didSave', (params: any) => {
-    // Re-analyze on save without debounce
     pipeline.parseFile({ uri: params.textDocument.uri })
     pipeline.fullAnalysis()
   })
@@ -160,6 +172,15 @@ export function startServer(input: {
     })
   })
 
+  dispatcher.onRequest('textDocument/signatureHelp', (params: any) => {
+    return handleSignatureHelp({
+      docs,
+      index,
+      uri: params.textDocument.uri,
+      position: params.position,
+    })
+  })
+
   dispatcher.onRequest('textDocument/documentSymbol', (params: any) => {
     return handleDocumentSymbols({
       docs,
@@ -180,6 +201,74 @@ export function startServer(input: {
   dispatcher.onRequest('textDocument/foldingRange', (params: any) => {
     return handleFoldingRanges({
       docs,
+      uri: params.textDocument.uri,
+    })
+  })
+
+  dispatcher.onRequest('textDocument/prepareRename', (params: any) => {
+    return handlePrepareRename({
+      docs,
+      index,
+      uri: params.textDocument.uri,
+      position: params.position,
+    })
+  })
+
+  dispatcher.onRequest('textDocument/rename', (params: any) => {
+    return handleRename({
+      docs,
+      index,
+      uri: params.textDocument.uri,
+      position: params.position,
+      newName: params.newName,
+    })
+  })
+
+  dispatcher.onRequest('workspace/symbol', (params: any) => {
+    return handleWorkspaceSymbols({
+      index,
+      query: params.query ?? '',
+    })
+  })
+
+  dispatcher.onRequest('textDocument/semanticTokens/full', (params: any) => {
+    return handleSemanticTokensFull({
+      docs,
+      uri: params.textDocument.uri,
+    })
+  })
+
+  dispatcher.onRequest('textDocument/formatting', (params: any) => {
+    return handleFormatting({
+      docs,
+      uri: params.textDocument.uri,
+      options: params.options ?? { tabSize: 2, insertSpaces: true },
+    })
+  })
+
+  dispatcher.onRequest('textDocument/inlayHint', (params: any) => {
+    return handleInlayHints({
+      docs,
+      index,
+      uri: params.textDocument.uri,
+      range: params.range,
+    })
+  })
+
+  dispatcher.onRequest('textDocument/codeAction', (params: any) => {
+    return handleCodeActions({
+      docs,
+      index,
+      uri: params.textDocument.uri,
+      range: params.range,
+      diagnostics: params.context?.diagnostics ?? [],
+    })
+  })
+
+  dispatcher.onRequest('textDocument/codeLens', (params: any) => {
+    return handleCodeLens({
+      docs,
+      index,
       uri: params.textDocument.uri,
     })
   })
