@@ -8,16 +8,20 @@
  */
 
 import { startServer } from '@/host/index'
-import type { SurfCard, DesugarResult, Book } from '@/mesh/form'
+import type { SurfCard, DesugarResult, Book, FileSkele, ResolverState } from '@/mesh/form'
 
 async function main(): Promise<void> {
   // Dynamic imports to avoid rootDir conflicts at compile time.
   // These modules are resolved at runtime from sibling packages.
   let readCard: (input: { tree: any; file: string }) => SurfCard
-  let expandFuse: (input: { card: SurfCard }) => SurfCard
+  let expandFuse: (input: { card: SurfCard; externalTrees?: Map<string, any> }) => SurfCard
   let parse: (input: { file: string; text: string }) => { tree: any } | null
   let desugarCardTolerant: ((input: { card: SurfCard }) => DesugarResult) | undefined
   let check: ((input: { term: any; book: Book }) => { state: any; value: any } | null) | undefined
+  let extractSkele: ((input: { card: SurfCard }) => FileSkele) | undefined
+  let initResolver: ((input: { skeletons: Map<string, FileSkele> }) => ResolverState) | undefined
+  let resolveTemplates: ((input: { state: ResolverState }) => ResolverState) | undefined
+  let resolveStdlib: ((input: { loadPath: string; parse: any }) => SurfCard | null) | undefined
 
   try {
     // mesh.tree's readCard and expandFuse (sibling package, resolved at runtime)
@@ -54,6 +58,26 @@ async function main(): Promise<void> {
   }
 
   try {
+    // @ts-expect-error: runtime-resolved dynamic import
+    const skeleModule = await import('../../mesh.tree/host/resolve/skeleton.js')
+    extractSkele = skeleModule.extractSkele
+    // @ts-expect-error: runtime-resolved dynamic import
+    const resolveModule = await import('../../mesh.tree/host/resolve/index.js')
+    initResolver = resolveModule.initResolver
+    resolveTemplates = resolveModule.resolveTemplates
+  } catch {
+    // Skeleton resolution not available
+  }
+
+  try {
+    // @ts-expect-error: runtime-resolved dynamic import
+    const stdlibModule = await import('../../mesh.tree/host/stdlib/index.js')
+    resolveStdlib = stdlibModule.resolveStdlib
+  } catch {
+    // Stdlib resolution not available
+  }
+
+  try {
     // @ts-expect-error: runtime-resolved dynamic import (local at ../../../../tree/host/)
     const treeModule = await import('../../../../tree/host/index.js')
     const treeParse = treeModule.default ?? treeModule.parse ?? treeModule
@@ -70,7 +94,17 @@ async function main(): Promise<void> {
     process.stderr.write('Warning: @cluesurf/tree not available, parsing disabled\n')
   }
 
-  startServer({ parse, readCard, expandFuse, desugarCardTolerant, check })
+  startServer({
+    parse,
+    readCard,
+    expandFuse,
+    desugarCardTolerant,
+    check,
+    extractSkele,
+    initResolver,
+    resolveTemplates,
+    resolveStdlib,
+  })
 }
 
 main()

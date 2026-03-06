@@ -32,14 +32,18 @@ import {
   TEXT_DOCUMENT_SYNC_KIND,
   type InitializeResult,
 } from '@/link/protocol'
-import type { SurfCard, DesugarResult, Book } from '@/mesh/form'
+import type { SurfCard, DesugarResult, Book, FileSkele, ResolverState } from '@/mesh/form'
 
 export function startServer(input: {
   parse: (input: { file: string; text: string }) => { tree: any } | null
   readCard: (input: { tree: any; file: string }) => any
-  expandFuse: (input: { card: any }) => any
+  expandFuse: (input: { card: any; externalTrees?: Map<string, any> }) => any
   desugarCardTolerant?: (input: { card: SurfCard }) => DesugarResult
   check?: (input: { term: any; book: Book }) => { state: any; value: any } | null
+  extractSkele?: (input: { card: SurfCard }) => FileSkele
+  initResolver?: (input: { skeletons: Map<string, FileSkele> }) => ResolverState
+  resolveTemplates?: (input: { state: ResolverState }) => ResolverState
+  resolveStdlib?: (input: { loadPath: string; parse: any }) => SurfCard | null
 }): void {
   const docs = createDocumentStore()
   const index = createIndex()
@@ -55,11 +59,29 @@ export function startServer(input: {
     expandFuse: input.expandFuse,
     desugar: input.desugarCardTolerant,
     check: input.check,
+    extractSkele: input.extractSkele,
+    initResolver: input.initResolver,
+    resolveTemplates: input.resolveTemplates,
+    resolveStdlib: input.resolveStdlib,
   })
 
   // -- Lifecycle --
 
-  dispatcher.onRequest('initialize', (_params): InitializeResult => {
+  dispatcher.onRequest('initialize', (params: any): InitializeResult => {
+    // Scan workspace folders for .tree files
+    const folders: string[] = []
+    if (params?.workspaceFolders) {
+      for (const f of params.workspaceFolders) {
+        folders.push(uriToPath(f.uri))
+      }
+    } else if (params?.rootUri) {
+      folders.push(uriToPath(params.rootUri))
+    }
+
+    if (folders.length > 0) {
+      pipeline.scanWorkspace({ folders })
+    }
+
     return {
       capabilities: {
         textDocumentSync: TEXT_DOCUMENT_SYNC_KIND.Incremental,

@@ -171,11 +171,35 @@ export type DesugarResult = {
   errors: Kink[]
 }
 
+/** Skeleton types mirroring mesh.tree's resolve/skeleton. */
+export type FileSkele = {
+  file: string
+  staticNames: Map<string, any>
+  trees: Map<string, any>
+  fuses: any[]
+  loads: any[]
+  card: SurfCard
+}
+
+export type ResolverState = {
+  files: Map<string, FileSkele>
+  known: Map<string, any>
+  pending: any[]
+  watchers: any
+  trees: Map<string, any>
+  generation: number
+  errors: Array<{ form: string; file: string; name: string; detail: string }>
+}
+
 /** Functions injected from mesh.tree at runtime. */
 export type MeshBindings = {
   parse: (input: { file: string; text: string }) => { tree: any } | null
   readCard: (input: { tree: any; file: string }) => SurfCard
-  expandFuse: (input: { card: SurfCard }) => SurfCard
+  expandFuse: (input: { card: SurfCard; externalTrees?: Map<string, SurfTree> }) => SurfCard
   desugarCardTolerant?: (input: { card: SurfCard }) => DesugarResult
   check?: (input: { term: any; book: Book }) => { state: any; value: any } | null
+  extractSkele?: (input: { card: SurfCard }) => FileSkele
+  initResolver?: (input: { skeletons: Map<string, FileSkele> }) => ResolverState
+  resolveTemplates?: (input: { state: ResolverState }) => ResolverState
+  resolveStdlib?: (input: { loadPath: string; parse: (input: { file: string; text: string }) => { tree: any } | null }) => SurfCard | null
 }
